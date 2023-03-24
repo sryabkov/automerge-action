@@ -647,6 +647,16 @@ function createConfig(env = {}) {
     throw error;
   }
 
+  function validateMergeableProperty(value) {
+    if (["mergeable", "mergeable_state"].includes(value.toLowerCase())) {
+      return value.toLowerCase();
+    } else {
+      throw new ClientError(
+        `Invalid value provided for MERGEABLE_PROPERTY: ${value}. Must be one of: mergeable, mergeable_state.`
+      );
+    }
+  }
+
   const mergeLabels = parseMergeLabels(env.MERGE_LABELS, "automerge");
   const mergeRemoveLabels = parseArray(env.MERGE_REMOVE_LABELS);
   const mergeMethod = env.MERGE_METHOD || "merge";
@@ -671,6 +681,9 @@ function createConfig(env = {}) {
     "unknown",
     "unstable"
   ]);
+  const mergeableProperty = validateMergeableProperty(
+    env.MERGEABLE_PROPERTY || "mergeable_state"
+  );
 
   const updateLabels = parseMergeLabels(env.UPDATE_LABELS, "automerge");
   const updateMethod = env.UPDATE_METHOD || "merge";
@@ -698,6 +711,7 @@ function createConfig(env = {}) {
     mergeDeleteBranchFilter,
     mergeErrorFail,
     mergeReadyState,
+    mergeableProperty,
     updateLabels,
     updateMethod,
     updateRetries,
@@ -1259,7 +1273,14 @@ function checkReady(pullRequest, context) {
   if (skipPullRequest(context, pullRequest)) {
     return "failure";
   }
-  return mergeable(pullRequest, context);
+  const { config } = context;
+  if (["mergeable_state"].includes(config.mergeableProperty)) {
+    return mergeable(pullRequest, context);
+  } else if (["mergeable"].includes(config.mergeableProperty)) {
+    return mergeableAlt(pullRequest, context);
+  } else {
+    throw new Error(`Invalid mergeableProperty: ${config.mergeableProperty}`);
+  }
 }
 
 function mergeable(pullRequest, context) {
@@ -1276,6 +1297,16 @@ function mergeable(pullRequest, context) {
   } else {
     logger.info("Current PR status: mergeable_state:", mergeable_state);
     return "retry";
+  }
+}
+
+function mergeableAlt(pullRequest) {
+  const { mergeable } = pullRequest;
+  logger.info("PR's mergeable property", mergeable);
+  if (mergeable) {
+    return "success";
+  } else {
+    return "failure";
   }
 }
 
@@ -22949,7 +22980,7 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"automerge-action","version":"0.15.5","description":"GitHub action to automatically merge pull requests","main":"lib/api.js","author":"Pascal","license":"MIT","private":true,"bin":{"automerge-action":"./bin/automerge.js"},"scripts":{"test":"jest","it":"node it/it.js","lint":"prettier -l lib/** test/** && eslint .","compile":"ncc build bin/automerge.js --license LICENSE -o dist","prepublish":"yarn lint && yarn test && yarn compile"},"dependencies":{"@actions/core":"^1.10.0","@octokit/rest":"^19.0.7","argparse":"^2.0.1","fs-extra":"^11.1.0","object-resolve-path":"^1.1.1","tmp":"^0.2.1"},"devDependencies":{"@vercel/ncc":"^0.36.1","dotenv":"^16.0.3","eslint":"^8.34.0","eslint-plugin-jest":"^27.2.1","jest":"^29.4.3","prettier":"^2.8.4"},"prettier":{"trailingComma":"none","arrowParens":"avoid"}}');
+module.exports = JSON.parse('{"name":"automerge-action","version":"0.15.6","description":"GitHub action to automatically merge pull requests","main":"lib/api.js","author":"Pascal","license":"MIT","private":true,"bin":{"automerge-action":"./bin/automerge.js"},"scripts":{"test":"jest","it":"node it/it.js","lint":"prettier -l lib/** test/** && eslint .","compile":"ncc build bin/automerge.js --license LICENSE -o dist","prepublish":"yarn lint && yarn test && yarn compile"},"dependencies":{"@actions/core":"^1.10.0","@octokit/rest":"^19.0.7","argparse":"^2.0.1","fs-extra":"^11.1.0","object-resolve-path":"^1.1.1","tmp":"^0.2.1"},"devDependencies":{"@vercel/ncc":"^0.36.1","dotenv":"^16.0.3","eslint":"^8.34.0","eslint-plugin-jest":"^27.2.1","jest":"^29.4.3","prettier":"^2.8.4"},"prettier":{"trailingComma":"none","arrowParens":"avoid"}}');
 
 /***/ })
 
